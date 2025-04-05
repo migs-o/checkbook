@@ -1,36 +1,36 @@
 package com.example.checkbook.ui.components
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.checkbook.data.Transaction
 import com.example.checkbook.data.TransactionType
+import com.example.checkbook.data.PaymentMethod
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TransactionItem(
     transaction: Transaction,
-    onDelete: () -> Unit,
-    onEdit: () -> Unit,
+    onEdit: (Transaction) -> Unit,
+    onDelete: (Transaction) -> Unit,
+    paymentMethods: List<PaymentMethod>,
     modifier: Modifier = Modifier
 ) {
-    var showDeleteDialog by remember { mutableStateOf(false) }
-    val dateFormat = remember { SimpleDateFormat("MM/dd/yyyy", Locale.getDefault()) }
-
     Card(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-        onClick = onEdit
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .clickable { onEdit(transaction) }
     ) {
         Row(
             modifier = Modifier
@@ -42,65 +42,50 @@ fun TransactionItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = transaction.description,
-                    style = MaterialTheme.typography.titleMedium
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = dateFormat.format(transaction.date),
-                    style = MaterialTheme.typography.bodyMedium
+                    text = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                        .format(transaction.date),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
-                if (transaction.type == TransactionType.CHECK && !transaction.checkNumber.isNullOrBlank()) {
-                    Text(
-                        text = "Check #${transaction.checkNumber}",
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                transaction.paymentMethodId?.let { id ->
+                    paymentMethods.find { it.id == id }?.let { paymentMethod ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = paymentMethod.name,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
+
             Column(
                 horizontalAlignment = Alignment.End
             ) {
                 Text(
-                    text = "$%.2f".format(transaction.amount),
-                    style = MaterialTheme.typography.titleMedium,
+                    text = NumberFormat.getCurrencyInstance().format(transaction.amount),
+                    style = MaterialTheme.typography.bodyLarge,
                     color = when (transaction.type) {
-                        TransactionType.DEPOSIT -> MaterialTheme.colorScheme.primary
-                        else -> MaterialTheme.colorScheme.error
+                        TransactionType.DEPOSIT -> Color.Green
+                        TransactionType.WITHDRAWAL -> Color.Red
                     }
                 )
-                Text(
-                    text = "Balance: $%.2f".format(transaction.balance),
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.End
-                )
-            }
-            IconButton(onClick = { showDeleteDialog = true }) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = "Delete transaction"
-                )
+                
+                IconButton(
+                    onClick = { onDelete(transaction) }
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = "Delete transaction",
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                }
             }
         }
-    }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Transaction") },
-            text = { Text("Are you sure you want to delete this transaction?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDelete()
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text("Delete")
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 } 
