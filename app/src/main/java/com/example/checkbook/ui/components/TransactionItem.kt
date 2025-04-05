@@ -137,8 +137,8 @@ fun TransactionItem(
                                         text = NumberFormat.getCurrencyInstance().format(transaction.amount),
                                         style = MaterialTheme.typography.bodyLarge,
                                         color = when (transaction.type) {
-                                            TransactionType.DEPOSIT -> Color.Green
-                                            TransactionType.WITHDRAWAL -> Color.Red
+                                            TransactionType.INCOME -> Color.Green
+                                            TransactionType.EXPENSE -> Color.Red
                                         }
                                     )
                                 }
