@@ -39,7 +39,6 @@ fun TransactionItem(
     val density = LocalDensity.current
     val threshold = with(density) { 150.dp.toPx() }
     
-    // Create a key based on the transaction ID to ensure state independence
     key(transaction.id) {
         var isVisible by remember { mutableStateOf(true) }
         val dismissState = rememberSwipeToDismissBoxState(
@@ -54,17 +53,18 @@ fun TransactionItem(
             positionalThreshold = { threshold }
         )
 
-        Surface(
-            modifier = Modifier.fillMaxWidth(),
-            color = MaterialTheme.colorScheme.surface
+        AnimatedVisibility(
+            visible = isVisible,
+            exit = fadeOut(
+                animationSpec = tween(durationMillis = 300)
+            ) + shrinkHorizontally(
+                animationSpec = tween(durationMillis = 300)
+            )
         ) {
-            AnimatedVisibility(
-                visible = isVisible,
-                exit = fadeOut(
-                    animationSpec = tween(durationMillis = 300)
-                ) + shrinkHorizontally(
-                    animationSpec = tween(durationMillis = 300)
-                )
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surface)
             ) {
                 SwipeToDismissBox(
                     state = dismissState,
@@ -84,67 +84,73 @@ fun TransactionItem(
                         }
                     },
                     content = {
-                        Card(
-                            modifier = modifier
+                        Box(
+                            modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 8.dp)
-                                .clickable { onEdit(transaction) },
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface
-                            )
+                                .background(MaterialTheme.colorScheme.surface)
                         ) {
-                            Row(
+                            Card(
                                 modifier = Modifier
-                                    .padding(16.dp)
-                                    .fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    .clickable { onEdit(transaction) },
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surface
+                                ),
+                                elevation = CardDefaults.cardElevation(
+                                    defaultElevation = 0.dp
+                                )
                             ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        text = transaction.description,
-                                        style = MaterialTheme.typography.bodyLarge,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.height(4.dp))
-                                    Text(
-                                        text = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-                                            .format(transaction.date),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                    transaction.paymentMethodId?.let { id ->
-                                        paymentMethods.find { it.id == id }?.let { paymentMethod ->
-                                            Spacer(modifier = Modifier.height(4.dp))
-                                            Text(
-                                                text = paymentMethod.name,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                                            )
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = transaction.description,
+                                            style = MaterialTheme.typography.bodyLarge,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                                                .format(transaction.date),
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        transaction.paymentMethodId?.let { id ->
+                                            paymentMethods.find { it.id == id }?.let { paymentMethod ->
+                                                Spacer(modifier = Modifier.height(4.dp))
+                                                Text(
+                                                    text = paymentMethod.name,
+                                                    style = MaterialTheme.typography.bodySmall,
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                                )
+                                            }
                                         }
                                     }
-                                }
 
-                                Text(
-                                    text = NumberFormat.getCurrencyInstance().format(transaction.amount),
-                                    style = MaterialTheme.typography.bodyLarge,
-                                    color = when (transaction.type) {
-                                        TransactionType.DEPOSIT -> Color.Green
-                                        TransactionType.WITHDRAWAL -> Color.Red
-                                    }
-                                )
+                                    Text(
+                                        text = NumberFormat.getCurrencyInstance().format(transaction.amount),
+                                        style = MaterialTheme.typography.bodyLarge,
+                                        color = when (transaction.type) {
+                                            TransactionType.DEPOSIT -> Color.Green
+                                            TransactionType.WITHDRAWAL -> Color.Red
+                                        }
+                                    )
+                                }
                             }
                         }
-                    },
-                    enableDismissFromStartToEnd = true,
-                    enableDismissFromEndToStart = true
+                    }
                 )
             }
         }
 
         LaunchedEffect(isVisible) {
             if (!isVisible) {
-                // Add a small delay before calling onDelete to allow the animation to play
                 kotlinx.coroutines.delay(300)
                 onDelete(transaction)
             }
