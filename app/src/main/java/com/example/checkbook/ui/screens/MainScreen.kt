@@ -10,6 +10,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.animation.core.*
+import androidx.compose.ui.graphics.graphicsLayer
 import com.example.checkbook.data.Transaction
 import com.example.checkbook.data.TransactionType
 import com.example.checkbook.ui.TransactionUiState
@@ -28,10 +30,22 @@ fun MainScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     var showAddDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
+    var editingTransaction by remember { mutableStateOf<Transaction?>(null) }
     var amount by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.DEPOSIT) }
-    var checkNumber by remember { mutableStateOf("") }
+    var isAmountError by remember { mutableStateOf(false) }
+    var shouldShake by remember { mutableStateOf(false) }
+
+    val offsetX by animateFloatAsState(
+        targetValue = if (shouldShake) 1f else 0f,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessHigh
+        ),
+        finishedListener = { shouldShake = false }
+    )
 
     Scaffold(
         topBar = {
@@ -79,7 +93,14 @@ fun MainScreen(
                         items(transactions) { transaction ->
                             TransactionItem(
                                 transaction = transaction,
-                                onDelete = { viewModel.deleteTransaction(transaction) }
+                                onDelete = { viewModel.deleteTransaction(transaction) },
+                                onEdit = {
+                                    editingTransaction = transaction
+                                    amount = transaction.amount.toString()
+                                    description = transaction.description
+                                    selectedType = transaction.type
+                                    showEditDialog = true
+                                }
                             )
                         }
                     }
@@ -90,7 +111,10 @@ fun MainScreen(
 
     if (showAddDialog) {
         AlertDialog(
-            onDismissRequest = { showAddDialog = false },
+            onDismissRequest = { 
+                showAddDialog = false
+                isAmountError = false
+            },
             title = { Text("Add Transaction") },
             text = {
                 Column(
@@ -101,9 +125,19 @@ fun MainScreen(
                 ) {
                     OutlinedTextField(
                         value = amount,
-                        onValueChange = { amount = it },
+                        onValueChange = { 
+                            amount = it
+                            isAmountError = it.toDoubleOrNull() == null && it.isNotEmpty()
+                        },
+                        modifier = Modifier.graphicsLayer {
+                            translationY = if (shouldShake) offsetX * 20 else 0f
+                        },
                         label = { Text("Amount") },
-                        singleLine = true
+                        singleLine = true,
+                        isError = isAmountError,
+                        supportingText = if (isAmountError) {
+                            { Text("Please enter a valid number") }
+                        } else null
                     )
                     OutlinedTextField(
                         value = description,
@@ -122,14 +156,6 @@ fun MainScreen(
                             Text(type.name)
                         }
                     }
-                    if (selectedType == TransactionType.CHECK) {
-                        OutlinedTextField(
-                            value = checkNumber,
-                            onValueChange = { checkNumber = it },
-                            label = { Text("Check Number") },
-                            singleLine = true
-                        )
-                    }
                 }
             },
             confirmButton = {
@@ -139,22 +165,127 @@ fun MainScreen(
                             viewModel.addTransaction(
                                 amount = amountValue,
                                 description = description,
-                                type = selectedType,
-                                checkNumber = if (selectedType == TransactionType.CHECK) checkNumber else null
+                                type = selectedType
                             )
+                            showAddDialog = false
+                            amount = ""
+                            description = ""
+                            selectedType = TransactionType.DEPOSIT
+                            isAmountError = false
+                        } ?: run {
+                            isAmountError = true
+                            shouldShake = true
                         }
-                        showAddDialog = false
-                        amount = ""
-                        description = ""
-                        checkNumber = ""
-                        selectedType = TransactionType.DEPOSIT
                     }
                 ) {
                     Text("Add")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showAddDialog = false }) {
+                TextButton(
+                    onClick = { 
+                        showAddDialog = false
+                        amount = ""
+                        description = ""
+                        selectedType = TransactionType.DEPOSIT
+                        isAmountError = false
+                    }
+                ) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
+
+    if (showEditDialog && editingTransaction != null) {
+        AlertDialog(
+            onDismissRequest = {
+                showEditDialog = false
+                editingTransaction = null
+                isAmountError = false
+            },
+            title = { Text("Edit Transaction") },
+            text = {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = amount,
+                        onValueChange = { 
+                            amount = it
+                            isAmountError = it.toDoubleOrNull() == null && it.isNotEmpty()
+                        },
+                        modifier = Modifier.graphicsLayer {
+                            translationY = if (shouldShake) offsetX * 20 else 0f
+                        },
+                        label = { Text("Amount") },
+                        singleLine = true,
+                        isError = isAmountError,
+                        supportingText = if (isAmountError) {
+                            { Text("Please enter a valid number") }
+                        } else null
+                    )
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        label = { Text("Description") },
+                        singleLine = true
+                    )
+                    TransactionType.values().forEach { type ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            RadioButton(
+                                selected = selectedType == type,
+                                onClick = { selectedType = type }
+                            )
+                            Text(type.name)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        amount.toDoubleOrNull()?.let { amountValue ->
+                            editingTransaction?.let { transaction ->
+                                viewModel.updateTransaction(
+                                    transaction.copy(
+                                        amount = amountValue,
+                                        description = description,
+                                        type = selectedType
+                                    )
+                                )
+                                showEditDialog = false
+                                editingTransaction = null
+                                amount = ""
+                                description = ""
+                                selectedType = TransactionType.DEPOSIT
+                                isAmountError = false
+                            }
+                        } ?: run {
+                            isAmountError = true
+                            shouldShake = true
+                        }
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showEditDialog = false
+                        editingTransaction = null
+                        amount = ""
+                        description = ""
+                        selectedType = TransactionType.DEPOSIT
+                        isAmountError = false
+                    }
+                ) {
                     Text("Cancel")
                 }
             }
