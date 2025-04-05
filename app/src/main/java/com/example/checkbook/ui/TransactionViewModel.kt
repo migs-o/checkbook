@@ -40,21 +40,27 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
         viewModelScope.launch {
             try {
                 _uiState.value = TransactionUiState.Loading
-                val currentBalanceValue = currentBalance.value
-                val newBalance = when (type) {
-                    TransactionType.DEPOSIT -> currentBalanceValue + amount
-                    TransactionType.WITHDRAWAL, TransactionType.CHECK -> currentBalanceValue - amount
-                }
-                
                 val transaction = Transaction(
                     date = Date(),
                     amount = amount,
                     description = description,
                     type = type,
                     checkNumber = checkNumber,
-                    balance = newBalance
+                    balance = 0.0 // The repository will calculate the correct balance
                 )
                 repository.insertTransaction(transaction)
+                _uiState.value = TransactionUiState.Success
+            } catch (e: Exception) {
+                _uiState.value = TransactionUiState.Error(e.message ?: "Unknown error occurred")
+            }
+        }
+    }
+
+    fun updateTransaction(transaction: Transaction) {
+        viewModelScope.launch {
+            try {
+                _uiState.value = TransactionUiState.Loading
+                repository.updateTransaction(transaction)
                 _uiState.value = TransactionUiState.Success
             } catch (e: Exception) {
                 _uiState.value = TransactionUiState.Error(e.message ?: "Unknown error occurred")
