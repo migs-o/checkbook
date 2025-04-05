@@ -11,6 +11,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import com.example.checkbook.data.Transaction
@@ -34,7 +35,7 @@ fun MainScreen(
     var editingTransaction by remember { mutableStateOf<Transaction?>(null) }
     var amount by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
-    var selectedType by remember { mutableStateOf(TransactionType.INCOME) }
+    var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
     var selectedPaymentMethodId by remember { mutableStateOf<Int?>(null) }
     var isAmountError by remember { mutableStateOf(false) }
     var shouldShake by remember { mutableStateOf(false) }
@@ -226,7 +227,10 @@ fun MainScreen(
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.filledTonalButtonColors(
                                     containerColor = if (selectedType == type) {
-                                        MaterialTheme.colorScheme.primaryContainer
+                                        when (type) {
+                                            TransactionType.INCOME -> Color(0xFF4CAF50) // Green
+                                            TransactionType.EXPENSE -> Color(0xFFE57373) // Red
+                                        }
                                     } else {
                                         MaterialTheme.colorScheme.surfaceVariant
                                     }
@@ -235,7 +239,7 @@ fun MainScreen(
                                 Text(
                                     text = type.name,
                                     color = if (selectedType == type) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                        Color.White
                                     } else {
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                     }
@@ -308,7 +312,7 @@ fun MainScreen(
                             showAddDialog = false
                             amount = ""
                             description = ""
-                            selectedType = TransactionType.INCOME
+                            selectedType = TransactionType.EXPENSE
                             selectedPaymentMethodId = null
                         } else {
                             isAmountError = true
@@ -325,7 +329,7 @@ fun MainScreen(
                         showAddDialog = false
                         amount = ""
                         description = ""
-                        selectedType = TransactionType.INCOME
+                        selectedType = TransactionType.EXPENSE
                         selectedPaymentMethodId = null
                         isAmountError = false
                     }
@@ -383,7 +387,10 @@ fun MainScreen(
                                 modifier = Modifier.weight(1f),
                                 colors = ButtonDefaults.filledTonalButtonColors(
                                     containerColor = if (selectedType == type) {
-                                        MaterialTheme.colorScheme.primaryContainer
+                                        when (type) {
+                                            TransactionType.INCOME -> Color(0xFF4CAF50) // Green
+                                            TransactionType.EXPENSE -> Color(0xFFE57373) // Red
+                                        }
                                     } else {
                                         MaterialTheme.colorScheme.surfaceVariant
                                     }
@@ -392,7 +399,7 @@ fun MainScreen(
                                 Text(
                                     text = type.name,
                                     color = if (selectedType == type) {
-                                        MaterialTheme.colorScheme.onPrimaryContainer
+                                        Color.White
                                     } else {
                                         MaterialTheme.colorScheme.onSurfaceVariant
                                     }
@@ -464,7 +471,7 @@ fun MainScreen(
                             editingTransaction = null
                             amount = ""
                             description = ""
-                            selectedType = TransactionType.INCOME
+                            selectedType = TransactionType.EXPENSE
                             selectedPaymentMethodId = null
                         } else {
                             isAmountError = true
@@ -481,7 +488,7 @@ fun MainScreen(
                         editingTransaction = null
                         amount = ""
                         description = ""
-                        selectedType = TransactionType.INCOME
+                        selectedType = TransactionType.EXPENSE
                         selectedPaymentMethodId = null
                         isAmountError = false
                     }
