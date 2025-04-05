@@ -12,4 +12,5 @@ app/debug
 app/release
 *.apk
 *.aab
-*.hprof 
+*.hprof
+app/build/ 
