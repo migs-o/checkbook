@@ -28,6 +28,9 @@ fun SettingsScreen(
         factory = SettingsViewModelFactory(context)
     )
     val themePreference by viewModel.themePreference.collectAsState(initial = "system")
+    val paymentMethods by paymentMethodViewModel.allPaymentMethods.collectAsState(initial = emptyList())
+    var showAddDialog by remember { mutableStateOf(false) }
+    var editingPaymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
 
     Column(
         modifier = modifier
@@ -40,6 +43,7 @@ fun SettingsScreen(
             style = MaterialTheme.typography.headlineMedium
         )
 
+        // Theme Settings
         Card(
             modifier = Modifier.fillMaxWidth()
         ) {
@@ -74,6 +78,63 @@ fun SettingsScreen(
                 }
             }
         }
+
+        // Payment Methods Section
+        Card(
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Payment Methods",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    IconButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Default.Add, contentDescription = "Add payment method")
+                    }
+                }
+                
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(paymentMethods) { paymentMethod ->
+                        PaymentMethodItem(
+                            paymentMethod = paymentMethod,
+                            onEdit = { editingPaymentMethod = it },
+                            onToggleActive = { paymentMethodViewModel.togglePaymentMethodActive(it) },
+                            onDelete = { paymentMethodViewModel.deletePaymentMethod(it) }
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // Add/Edit Dialog
+    if (showAddDialog || editingPaymentMethod != null) {
+        AddEditPaymentMethodDialog(
+            paymentMethod = editingPaymentMethod,
+            onDismiss = {
+                showAddDialog = false
+                editingPaymentMethod = null
+            },
+            onConfirm = { name ->
+                if (editingPaymentMethod != null) {
+                    paymentMethodViewModel.updatePaymentMethod(editingPaymentMethod!!.copy(name = name))
+                } else {
+                    paymentMethodViewModel.addPaymentMethod(name)
+                }
+                showAddDialog = false
+                editingPaymentMethod = null
+            }
+        )
     }
 }
 
