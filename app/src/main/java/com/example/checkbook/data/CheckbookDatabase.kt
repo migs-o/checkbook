@@ -6,10 +6,11 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
 
-@Database(entities = [Transaction::class], version = 1)
+@Database(entities = [Transaction::class, PaymentMethod::class], version = 1)
 @TypeConverters(Converters::class)
 abstract class CheckbookDatabase : RoomDatabase() {
     abstract fun transactionDao(): TransactionDao
+    abstract fun paymentMethodDao(): PaymentMethodDao
 
     companion object {
         @Volatile

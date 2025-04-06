@@ -1,19 +1,42 @@
-package com.example.checkbook.ui
+package com.example.checkbook.ui.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.example.checkbook.data.Transaction
 import com.example.checkbook.data.TransactionRepository
+import com.example.checkbook.data.PaymentMethod
+import com.example.checkbook.data.PaymentMethodRepository
 import com.example.checkbook.data.TransactionType
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import java.util.Date
+import java.util.*
 
-class TransactionViewModel(private val repository: TransactionRepository) : ViewModel() {
+sealed class UiState<out T> {
+    object Loading : UiState<Nothing>()
+    data class Success<T>(val data: T) : UiState<T>()
+    data class Error(val message: String) : UiState<Nothing>()
+}
+
+sealed class TransactionUiState {
+    object Loading : TransactionUiState()
+    object Success : TransactionUiState()
+    data class Error(val message: String) : TransactionUiState()
+}
+
+class TransactionViewModel(
+    private val repository: TransactionRepository,
+    private val paymentMethodRepository: PaymentMethodRepository
+) : ViewModel() {
+    private val _transactionsState = MutableStateFlow<UiState<List<Transaction>>>(UiState.Loading)
+    val transactionsState: StateFlow<UiState<List<Transaction>>> = _transactionsState
+
+    private val _balanceState = MutableStateFlow<UiState<Double>>(UiState.Loading)
+    val balanceState: StateFlow<UiState<Double>> = _balanceState
+
+    private val _paymentMethodsState = MutableStateFlow<UiState<List<PaymentMethod>>>(UiState.Loading)
+    val paymentMethodsState: StateFlow<UiState<List<PaymentMethod>>> = _paymentMethodsState
+
     val transactions = repository.allTransactions
         .stateIn(
             scope = viewModelScope,
@@ -30,6 +53,38 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
 
     private val _uiState = MutableStateFlow<TransactionUiState>(TransactionUiState.Success)
     val uiState: StateFlow<TransactionUiState> = _uiState
+
+    init {
+        viewModelScope.launch {
+            try {
+                repository.allTransactions.collect { transactions ->
+                    _transactionsState.value = UiState.Success(transactions)
+                }
+            } catch (e: Exception) {
+                _transactionsState.value = UiState.Error(e.message ?: "Unknown error")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                repository.getCurrentBalance().collect { balance ->
+                    _balanceState.value = UiState.Success(balance)
+                }
+            } catch (e: Exception) {
+                _balanceState.value = UiState.Error(e.message ?: "Unknown error")
+            }
+        }
+
+        viewModelScope.launch {
+            try {
+                paymentMethodRepository.allActivePaymentMethods.collect { paymentMethods ->
+                    _paymentMethodsState.value = UiState.Success(paymentMethods)
+                }
+            } catch (e: Exception) {
+                _paymentMethodsState.value = UiState.Error(e.message ?: "Unknown error")
+            }
+        }
+    }
 
     fun addTransaction(
         amount: Double,
@@ -58,7 +113,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
         }
     }
 
-    fun updateTransaction(transaction: Transaction) {
+    fun update(transaction: Transaction) {
         viewModelScope.launch {
             try {
                 _uiState.value = TransactionUiState.Loading
@@ -70,7 +125,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
         }
     }
 
-    fun deleteTransaction(transaction: Transaction) {
+    fun delete(transaction: Transaction) {
         viewModelScope.launch {
             try {
                 _uiState.value = TransactionUiState.Loading
@@ -87,11 +142,14 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
     }
 }
 
-class TransactionViewModelFactory(private val repository: TransactionRepository) : ViewModelProvider.Factory {
+class TransactionViewModelFactory(
+    private val repository: TransactionRepository,
+    private val paymentMethodRepository: PaymentMethodRepository
+) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
         if (modelClass.isAssignableFrom(TransactionViewModel::class.java)) {
             @Suppress("UNCHECKED_CAST")
-            return TransactionViewModel(repository) as T
+            return TransactionViewModel(repository, paymentMethodRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

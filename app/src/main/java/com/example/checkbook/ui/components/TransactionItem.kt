@@ -122,7 +122,7 @@ fun TransactionItem(
                                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                         transaction.paymentMethodId?.let { id ->
-                                            paymentMethods.find { it.id == id }?.let { paymentMethod ->
+                                            paymentMethods.find { it.id.toLong() == id }?.let { paymentMethod ->
                                                 Spacer(modifier = Modifier.height(4.dp))
                                                 Text(
                                                     text = paymentMethod.name,

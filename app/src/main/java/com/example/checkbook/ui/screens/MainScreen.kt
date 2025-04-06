@@ -46,7 +46,7 @@ fun MainScreen(
     var amount by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf(TransactionType.EXPENSE) }
-    var selectedPaymentMethodId by remember { mutableStateOf<Int?>(null) }
+    var selectedPaymentMethodId by remember { mutableStateOf<Long?>(null) }
     var isAmountError by remember { mutableStateOf(false) }
     var shouldShake by remember { mutableStateOf(false) }
 
@@ -76,6 +76,26 @@ fun MainScreen(
         if (showAddDialog) {
             delay(100) // Short delay to ensure the dialog is ready
             amountFocusRequester.requestFocus()
+        }
+    }
+
+    fun addTransaction() {
+        val amountValue = amount.toDoubleOrNull()
+        if (amountValue != null && description.isNotBlank()) {
+            viewModel.addTransaction(
+                amount = amountValue,
+                description = description,
+                type = selectedType,
+                paymentMethodId = selectedPaymentMethodId ?: 0L
+            )
+            amount = ""
+            description = ""
+            selectedType = TransactionType.EXPENSE
+            selectedPaymentMethodId = null
+            showAddDialog = false
+        } else {
+            isAmountError = true
+            shouldShake = true
         }
     }
 
@@ -306,7 +326,7 @@ fun MainScreen(
                                     onExpandedChange = { expanded = it }
                                 ) {
                                     OutlinedTextField(
-                                        value = paymentMethodsState.data.find { it.id == selectedPaymentMethodId }?.name ?: "",
+                                        value = paymentMethodsState.data.find { it.id.toLong() == selectedPaymentMethodId }?.name ?: "",
                                         onValueChange = { },
                                         readOnly = true,
                                         label = { Text("Payment Method") },
@@ -321,7 +341,7 @@ fun MainScreen(
                                             DropdownMenuItem(
                                                 text = { Text(paymentMethod.name) },
                                                 onClick = {
-                                                    selectedPaymentMethodId = paymentMethod.id
+                                                    selectedPaymentMethodId = paymentMethod.id.toLong()
                                                     expanded = false
                                                 }
                                             )
@@ -342,26 +362,7 @@ fun MainScreen(
             },
             confirmButton = {
                 TextButton(
-                    onClick = {
-                        val amountValue = amount.toDoubleOrNull()
-                        if (amountValue != null) {
-                            viewModel.insert(Transaction(
-                                amount = amountValue,
-                                description = description,
-                                type = selectedType,
-                                date = Date(),
-                                paymentMethodId = selectedPaymentMethodId
-                            ))
-                            showAddDialog = false
-                            amount = ""
-                            description = ""
-                            selectedType = TransactionType.EXPENSE
-                            selectedPaymentMethodId = null
-                        } else {
-                            isAmountError = true
-                            shouldShake = true
-                        }
-                    }
+                    onClick = { addTransaction() }
                 ) {
                     Text("Add")
                 }
@@ -466,7 +467,7 @@ fun MainScreen(
                                     onExpandedChange = { expanded = it }
                                 ) {
                                     OutlinedTextField(
-                                        value = paymentMethodsState.data.find { it.id == selectedPaymentMethodId }?.name ?: "",
+                                        value = paymentMethodsState.data.find { it.id.toLong() == selectedPaymentMethodId }?.name ?: "",
                                         onValueChange = { },
                                         readOnly = true,
                                         label = { Text("Payment Method") },
@@ -481,7 +482,7 @@ fun MainScreen(
                                             DropdownMenuItem(
                                                 text = { Text(paymentMethod.name) },
                                                 onClick = {
-                                                    selectedPaymentMethodId = paymentMethod.id
+                                                    selectedPaymentMethodId = paymentMethod.id.toLong()
                                                     expanded = false
                                                 }
                                             )
@@ -509,7 +510,7 @@ fun MainScreen(
                                 amount = amountValue,
                                 description = description,
                                 type = selectedType,
-                                paymentMethodId = selectedPaymentMethodId
+                                paymentMethodId = selectedPaymentMethodId ?: 0L
                             ))
                             editingTransaction = null
                             amount = ""

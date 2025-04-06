@@ -13,5 +13,6 @@ data class Transaction(
     val description: String,
     val type: TransactionType,
     val checkNumber: String?,
-    val balance: Double
+    val balance: Double,
+    val paymentMethodId: Long
 ) 
