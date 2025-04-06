@@ -4,6 +4,8 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Settings
@@ -14,15 +16,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
 import com.example.checkbook.data.Transaction
 import com.example.checkbook.data.TransactionType
 import com.example.checkbook.data.PaymentMethod
-import com.example.checkbook.ui.viewmodels.TransactionViewModel
-import com.example.checkbook.ui.viewmodels.UiState
+import com.example.checkbook.ui.TransactionViewModel
+import com.example.checkbook.ui.PaymentMethodViewModel
 import com.example.checkbook.ui.components.TransactionItem
+import com.example.checkbook.ui.viewmodels.UiState
 import java.util.*
 import java.text.NumberFormat
-import kotlinx.coroutines.flow.Flow
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusProperties
@@ -33,13 +37,14 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import kotlinx.coroutines.delay
+import androidx.compose.foundation.clickable
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(
     viewModel: TransactionViewModel,
-    onNavigateToSettings: () -> Unit,
-    modifier: Modifier = Modifier
+    paymentMethodViewModel: PaymentMethodViewModel,
+    onNavigateToSettings: () -> Unit
 ) {
     var showAddDialog by remember { mutableStateOf(false) }
     var editingTransaction by remember { mutableStateOf<Transaction?>(null) }
@@ -49,10 +54,24 @@ fun MainScreen(
     var selectedPaymentMethodId by remember { mutableStateOf<Long?>(null) }
     var isAmountError by remember { mutableStateOf(false) }
     var shouldShake by remember { mutableStateOf(false) }
+    var showDescriptionDropdown by remember { mutableStateOf(false) }
+    
+    val uniqueDescriptions by viewModel.uniqueDescriptions.collectAsState(initial = emptyList())
+    val currentBalance by viewModel.currentBalance.collectAsState(initial = 0.0)
+    val transactions by viewModel.transactions.collectAsState(initial = emptyList())
+    val paymentMethods by paymentMethodViewModel.allActivePaymentMethods.collectAsState(initial = emptyList())
 
     val amountFocusRequester = remember { FocusRequester() }
     val descriptionFocusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
+
+    val filteredDescriptions = remember(description, uniqueDescriptions) {
+        if (description.isNotEmpty()) {
+            uniqueDescriptions.filter { it.contains(description, ignoreCase = true) }
+        } else {
+            emptyList()
+        }
+    }
 
     val offsetX by animateFloatAsState(
         targetValue = if (shouldShake) 1f else 0f,
@@ -125,378 +144,189 @@ fun MainScreen(
                 .padding(paddingValues)
         ) {
             // Balance Card
-            when (val balanceState = viewModel.balanceState.collectAsState().value) {
-                is UiState.Loading -> {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            CircularProgressIndicator()
-                        }
-                    }
-                }
-                is UiState.Success -> {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "Current Balance",
-                                style = MaterialTheme.typography.titleMedium
-                            )
-                            Text(
-                                text = NumberFormat.getCurrencyInstance().format(balanceState.data),
-                                style = MaterialTheme.typography.headlineMedium
-                            )
-                        }
-                    }
-                }
-                is UiState.Error -> {
-                    Card(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Text(
-                            text = "Error loading balance: ${balanceState.message}",
-                            modifier = Modifier.padding(16.dp),
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "Current Balance",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        text = NumberFormat.getCurrencyInstance().format(currentBalance),
+                        style = MaterialTheme.typography.headlineMedium
+                    )
                 }
             }
 
             // Transactions List
-            when (val transactionsState = viewModel.transactionsState.collectAsState().value) {
-                is UiState.Loading -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator()
-                    }
-                }
-                is UiState.Success -> {
-                    LazyColumn {
-                        items(transactionsState.data) { transaction ->
-                            val paymentMethods = when (val paymentMethodsState = viewModel.paymentMethodsState.collectAsState().value) {
-                                is UiState.Success -> paymentMethodsState.data
-                                else -> emptyList()
-                            }
-                            TransactionItem(
-                                transaction = transaction,
-                                onEdit = { editingTransaction = it },
-                                onDelete = { viewModel.delete(it) },
-                                paymentMethods = paymentMethods
-                            )
-                        }
-                    }
-                }
-                is UiState.Error -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "Error loading transactions: ${transactionsState.message}",
-                            color = MaterialTheme.colorScheme.error
-                        )
-                    }
+            LazyColumn {
+                items(transactions) { transaction ->
+                    TransactionItem(
+                        transaction = transaction,
+                        onEdit = { editingTransaction = it },
+                        onDelete = { viewModel.deleteTransaction(it) },
+                        paymentMethods = paymentMethods
+                    )
                 }
             }
         }
     }
 
-    if (showAddDialog) {
+    if (showAddDialog || editingTransaction != null) {
         AlertDialog(
-            onDismissRequest = { 
+            onDismissRequest = {
                 showAddDialog = false
-                isAmountError = false
+                editingTransaction = null
+                amount = ""
+                description = ""
+                selectedType = TransactionType.EXPENSE
                 selectedPaymentMethodId = null
             },
-            title = { Text("Add Transaction") },
+            title = { Text(if (editingTransaction != null) "Edit Transaction" else "Add Transaction") },
             text = {
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     OutlinedTextField(
                         value = amount,
-                        onValueChange = { 
-                            amount = it
-                            isAmountError = it.toDoubleOrNull() == null && it.isNotEmpty()
-                        },
-                        modifier = Modifier
-                            .graphicsLayer {
-                                translationX = if (shouldShake) offsetX * 20 else 0f
-                            }
-                            .focusRequester(amountFocusRequester)
-                            .focusProperties {
-                                next = descriptionFocusRequester
-                            },
+                        onValueChange = { amount = it },
                         label = { Text("Amount") },
-                        singleLine = true,
-                        isError = isAmountError,
-                        supportingText = if (isAmountError) {
-                            { Text("Please enter a valid number") }
-                        } else null,
                         keyboardOptions = KeyboardOptions(
                             keyboardType = KeyboardType.Decimal,
                             imeAction = ImeAction.Next
                         ),
                         keyboardActions = KeyboardActions(
-                            onNext = { descriptionFocusRequester.requestFocus() }
-                        )
-                    )
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        modifier = Modifier
-                            .focusRequester(descriptionFocusRequester),
-                        label = { Text("Description") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            keyboardType = KeyboardType.Text,
-                            imeAction = ImeAction.Done,
-                            capitalization = KeyboardCapitalization.Sentences
+                            onNext = {
+                                descriptionFocusRequester.requestFocus()
+                            }
                         ),
-                        keyboardActions = KeyboardActions(
-                            onDone = { keyboardController?.hide() }
-                        )
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        TransactionType.values().forEach { type ->
-                            FilledTonalButton(
-                                onClick = { selectedType = type },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = if (selectedType == type) {
-                                        when (type) {
-                                            TransactionType.INCOME -> Color(0xFF4CAF50) // Green
-                                            TransactionType.EXPENSE -> Color(0xFFE57373) // Red
-                                        }
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                    }
-                                )
-                            ) {
-                                Text(
-                                    text = type.name,
-                                    color = if (selectedType == type) {
-                                        Color.White
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Payment Method Selection
-                    when (val paymentMethodsState = viewModel.paymentMethodsState.collectAsState().value) {
-                        is UiState.Loading -> {
-                            CircularProgressIndicator(
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-                        }
-                        is UiState.Success -> {
-                            if (paymentMethodsState.data.isNotEmpty()) {
-                                var expanded by remember { mutableStateOf(false) }
-                                ExposedDropdownMenuBox(
-                                    expanded = expanded,
-                                    onExpandedChange = { expanded = it }
-                                ) {
-                                    OutlinedTextField(
-                                        value = paymentMethodsState.data.find { it.id.toLong() == selectedPaymentMethodId }?.name ?: "",
-                                        onValueChange = { },
-                                        readOnly = true,
-                                        label = { Text("Payment Method") },
-                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                        modifier = Modifier.menuAnchor()
-                                    )
-                                    ExposedDropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false }
-                                    ) {
-                                        paymentMethodsState.data.forEach { paymentMethod ->
-                                            DropdownMenuItem(
-                                                text = { Text(paymentMethod.name) },
-                                                onClick = {
-                                                    selectedPaymentMethodId = paymentMethod.id.toLong()
-                                                    expanded = false
-                                                }
-                                            )
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        is UiState.Error -> {
-                            Text(
-                                text = "Error loading payment methods",
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(vertical = 8.dp)
-                            )
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = { addTransaction() }
-                ) {
-                    Text("Add")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { 
-                        showAddDialog = false
-                        amount = ""
-                        description = ""
-                        selectedType = TransactionType.EXPENSE
-                        selectedPaymentMethodId = null
-                        isAmountError = false
-                    }
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
-    }
-
-    editingTransaction?.let { transaction ->
-        AlertDialog(
-            onDismissRequest = {
-                editingTransaction = null
-                isAmountError = false
-                selectedPaymentMethodId = null
-            },
-            title = { Text("Edit Transaction") },
-            text = {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = amount,
-                        onValueChange = { 
-                            amount = it
-                            isAmountError = it.toDoubleOrNull() == null && it.isNotEmpty()
-                        },
-                        modifier = Modifier.graphicsLayer {
-                            translationX = if (shouldShake) offsetX * 20 else 0f
-                        },
-                        label = { Text("Amount") },
-                        singleLine = true,
                         isError = isAmountError,
-                        supportingText = if (isAmountError) {
-                            { Text("Please enter a valid number") }
-                        } else null
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(amountFocusRequester)
                     )
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        label = { Text("Description") },
-                        singleLine = true
-                    )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        TransactionType.values().forEach { type ->
-                            FilledTonalButton(
-                                onClick = { selectedType = type },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.filledTonalButtonColors(
-                                    containerColor = if (selectedType == type) {
-                                        when (type) {
-                                            TransactionType.INCOME -> Color(0xFF4CAF50) // Green
-                                            TransactionType.EXPENSE -> Color(0xFFE57373) // Red
-                                        }
-                                    } else {
-                                        MaterialTheme.colorScheme.surfaceVariant
-                                    }
-                                )
-                            ) {
-                                Text(
-                                    text = type.name,
-                                    color = if (selectedType == type) {
-                                        Color.White
-                                    } else {
-                                        MaterialTheme.colorScheme.onSurfaceVariant
-                                    }
-                                )
-                            }
-                        }
-                    }
                     
-                    // Payment Method Selection
-                    when (val paymentMethodsState = viewModel.paymentMethodsState.collectAsState().value) {
-                        is UiState.Loading -> {
-                            CircularProgressIndicator(
-                                modifier = Modifier.align(Alignment.CenterHorizontally)
-                            )
-                        }
-                        is UiState.Success -> {
-                            if (paymentMethodsState.data.isNotEmpty()) {
-                                var expanded by remember { mutableStateOf(false) }
-                                ExposedDropdownMenuBox(
-                                    expanded = expanded,
-                                    onExpandedChange = { expanded = it }
+                    Box {
+                        OutlinedTextField(
+                            value = description,
+                            onValueChange = { 
+                                description = it
+                                showDescriptionDropdown = it.isNotEmpty()
+                            },
+                            label = { Text("Description") },
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Done,
+                                capitalization = KeyboardCapitalization.Sentences
+                            ),
+                            keyboardActions = KeyboardActions(
+                                onDone = {
+                                    keyboardController?.hide()
+                                }
+                            ),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(descriptionFocusRequester)
+                        )
+                        
+                        if (showDescriptionDropdown && filteredDescriptions.isNotEmpty()) {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp)
+                                    .zIndex(1f),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .heightIn(max = 200.dp)
+                                        .verticalScroll(rememberScrollState())
                                 ) {
-                                    OutlinedTextField(
-                                        value = paymentMethodsState.data.find { it.id.toLong() == selectedPaymentMethodId }?.name ?: "",
-                                        onValueChange = { },
-                                        readOnly = true,
-                                        label = { Text("Payment Method") },
-                                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                                        modifier = Modifier.menuAnchor()
-                                    )
-                                    ExposedDropdownMenu(
-                                        expanded = expanded,
-                                        onDismissRequest = { expanded = false }
-                                    ) {
-                                        paymentMethodsState.data.forEach { paymentMethod ->
-                                            DropdownMenuItem(
-                                                text = { Text(paymentMethod.name) },
-                                                onClick = {
-                                                    selectedPaymentMethodId = paymentMethod.id.toLong()
-                                                    expanded = false
+                                    filteredDescriptions.forEach { desc ->
+                                        Text(
+                                            text = desc,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .clickable {
+                                                    description = desc
+                                                    showDescriptionDropdown = false
                                                 }
-                                            )
-                                        }
+                                                .padding(16.dp)
+                                        )
                                     }
                                 }
                             }
                         }
-                        is UiState.Error -> {
-                            Text(
-                                text = "Error loading payment methods",
-                                color = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.padding(vertical = 8.dp)
+                    }
+
+                    // Transaction Type Selection
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilterChip(
+                            selected = selectedType == TransactionType.EXPENSE,
+                            onClick = { selectedType = TransactionType.EXPENSE },
+                            label = { Text("Expense") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFFFFEBEE),
+                                selectedLabelColor = Color(0xFFC62828)
                             )
+                        )
+                        FilterChip(
+                            selected = selectedType == TransactionType.INCOME,
+                            onClick = { selectedType = TransactionType.INCOME },
+                            label = { Text("Income") },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = Color(0xFFE8F5E9),
+                                selectedLabelColor = Color(0xFF2E7D32)
+                            )
+                        )
+                    }
+
+                    // Payment Method Selection
+                    if (paymentMethods.isNotEmpty()) {
+                        var expanded by remember { mutableStateOf(false) }
+                        ExposedDropdownMenuBox(
+                            expanded = expanded,
+                            onExpandedChange = { expanded = it },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            OutlinedTextField(
+                                value = paymentMethods.find { pm -> pm.id.toLong() == selectedPaymentMethodId }?.name ?: "Select Payment Method",
+                                onValueChange = { },
+                                readOnly = true,
+                                label = { Text("Payment Method") },
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor()
+                            )
+                            ExposedDropdownMenu(
+                                expanded = expanded,
+                                onDismissRequest = { expanded = false }
+                            ) {
+                                paymentMethods.forEach { paymentMethod ->
+                                    DropdownMenuItem(
+                                        text = { Text(paymentMethod.name) },
+                                        onClick = { 
+                                            selectedPaymentMethodId = paymentMethod.id.toLong()
+                                            expanded = false
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -504,37 +334,40 @@ fun MainScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val amountValue = amount.toDoubleOrNull()
-                        if (amountValue != null) {
-                            viewModel.update(transaction.copy(
-                                amount = amountValue,
-                                description = description,
-                                type = selectedType,
-                                paymentMethodId = selectedPaymentMethodId ?: 0L
-                            ))
-                            editingTransaction = null
-                            amount = ""
-                            description = ""
-                            selectedType = TransactionType.EXPENSE
-                            selectedPaymentMethodId = null
+                        if (editingTransaction != null) {
+                            val amountValue = amount.toDoubleOrNull()
+                            if (amountValue != null && description.isNotBlank()) {
+                                viewModel.updateTransaction(
+                                    editingTransaction!!.copy(
+                                        amount = amountValue,
+                                        description = description,
+                                        type = selectedType,
+                                        paymentMethodId = selectedPaymentMethodId ?: 0L
+                                    )
+                                )
+                                editingTransaction = null
+                                amount = ""
+                                description = ""
+                                selectedType = TransactionType.EXPENSE
+                                selectedPaymentMethodId = null
+                            }
                         } else {
-                            isAmountError = true
-                            shouldShake = true
+                            addTransaction()
                         }
                     }
                 ) {
-                    Text("Save")
+                    Text(if (editingTransaction != null) "Save" else "Add")
                 }
             },
             dismissButton = {
                 TextButton(
                     onClick = {
+                        showAddDialog = false
                         editingTransaction = null
                         amount = ""
                         description = ""
                         selectedType = TransactionType.EXPENSE
                         selectedPaymentMethodId = null
-                        isAmountError = false
                     }
                 ) {
                     Text("Cancel")
