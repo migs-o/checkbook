@@ -23,6 +23,15 @@ import com.example.checkbook.ui.components.TransactionItem
 import java.util.*
 import java.text.NumberFormat
 import kotlinx.coroutines.flow.Flow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.focusProperties
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.ui.text.input.KeyboardType
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +49,10 @@ fun MainScreen(
     var isAmountError by remember { mutableStateOf(false) }
     var shouldShake by remember { mutableStateOf(false) }
 
+    val amountFocusRequester = remember { FocusRequester() }
+    val descriptionFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
     val offsetX by animateFloatAsState(
         targetValue = if (shouldShake) 1f else 0f,
         animationSpec = spring(
@@ -55,6 +68,13 @@ fun MainScreen(
             description = editingTransaction!!.description
             selectedType = editingTransaction!!.type
             selectedPaymentMethodId = editingTransaction!!.paymentMethodId
+        }
+    }
+
+    LaunchedEffect(showAddDialog) {
+        if (showAddDialog) {
+            delay(100) // Short delay to ensure the dialog is ready
+            amountFocusRequester.requestFocus()
         }
     }
 
@@ -201,21 +221,42 @@ fun MainScreen(
                             amount = it
                             isAmountError = it.toDoubleOrNull() == null && it.isNotEmpty()
                         },
-                        modifier = Modifier.graphicsLayer {
-                            translationX = if (shouldShake) offsetX * 20 else 0f
-                        },
+                        modifier = Modifier
+                            .graphicsLayer {
+                                translationX = if (shouldShake) offsetX * 20 else 0f
+                            }
+                            .focusRequester(amountFocusRequester)
+                            .focusProperties {
+                                next = descriptionFocusRequester
+                            },
                         label = { Text("Amount") },
                         singleLine = true,
                         isError = isAmountError,
                         supportingText = if (isAmountError) {
                             { Text("Please enter a valid number") }
-                        } else null
+                        } else null,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Decimal,
+                            imeAction = ImeAction.Next
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onNext = { descriptionFocusRequester.requestFocus() }
+                        )
                     )
                     OutlinedTextField(
                         value = description,
                         onValueChange = { description = it },
+                        modifier = Modifier
+                            .focusRequester(descriptionFocusRequester),
                         label = { Text("Description") },
-                        singleLine = true
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Text,
+                            imeAction = ImeAction.Done
+                        ),
+                        keyboardActions = KeyboardActions(
+                            onDone = { keyboardController?.hide() }
+                        )
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
