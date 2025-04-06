@@ -1,5 +1,7 @@
 package com.example.checkbook.ui.screens
 
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -9,18 +11,28 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.checkbook.data.PaymentMethod
 import com.example.checkbook.ui.PaymentMethodViewModel
 import com.example.checkbook.ui.viewmodels.SettingsViewModel
 import com.example.checkbook.ui.viewmodels.SettingsViewModelFactory
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
     paymentMethodViewModel: PaymentMethodViewModel,
+    onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -38,10 +50,19 @@ fun SettingsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Settings",
-            style = MaterialTheme.typography.headlineMedium
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Settings",
+                style = MaterialTheme.typography.headlineMedium
+            )
+            IconButton(onClick = onNavigateBack) {
+                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+            }
+        }
 
         // Theme Settings
         Card(
@@ -183,6 +204,22 @@ fun AddEditPaymentMethodDialog(
     onConfirm: (String) -> Unit
 ) {
     var name by remember { mutableStateOf(paymentMethod?.name ?: "") }
+    var isNameError by remember { mutableStateOf(false) }
+    var shouldShake by remember { mutableStateOf(false) }
+    
+    val nameFocusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    val offsetX by animateFloatAsState(
+        targetValue = if (shouldShake) 10f else 0f,
+        animationSpec = tween(durationMillis = 50),
+        finishedListener = { shouldShake = false }
+    )
+
+    LaunchedEffect(Unit) {
+        nameFocusRequester.requestFocus()
+        keyboardController?.show()
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -192,20 +229,41 @@ fun AddEditPaymentMethodDialog(
                 value = name,
                 onValueChange = { name = it },
                 label = { Text("Name") },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                isError = isNameError,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Sentences,
+                    keyboardType = KeyboardType.Text,
+                    imeAction = ImeAction.Done
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset(x = offsetX.dp)
+                    .focusRequester(nameFocusRequester)
             )
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(name) },
+                onClick = {
+                    if (name.isBlank()) {
+                        isNameError = true
+                        shouldShake = true
+                    } else {
+                        onConfirm(name)
+                        keyboardController?.hide()
+                    }
+                },
                 enabled = name.isNotBlank()
             ) {
                 Text(if (paymentMethod == null) "Add" else "Save")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = {
+                    keyboardController?.hide()
+                    onDismiss()
+                }
+            ) {
                 Text("Cancel")
             }
         }
