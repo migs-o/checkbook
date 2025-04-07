@@ -2,11 +2,21 @@ package com.example.checkbook.ui.screens
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +37,8 @@ import com.example.checkbook.ui.PaymentMethodViewModel
 import com.example.checkbook.ui.viewmodels.SettingsViewModel
 import com.example.checkbook.ui.viewmodels.SettingsViewModelFactory
 import kotlinx.coroutines.launch
+import androidx.compose.foundation.clickable
+import androidx.compose.animation.AnimatedVisibility
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,6 +55,7 @@ fun SettingsScreen(
     val paymentMethods by paymentMethodViewModel.allPaymentMethods.collectAsState(initial = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
     var editingPaymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
+    var isPaymentMethodsExpanded by remember { mutableStateOf(false) }
 
     Column(
         modifier = modifier
@@ -55,13 +68,17 @@ fun SettingsScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "Settings",
-                style = MaterialTheme.typography.headlineMedium
-            )
             IconButton(onClick = onNavigateBack) {
                 Icon(Icons.Default.ArrowBack, contentDescription = "Back")
             }
+            Text(
+                text = "Settings",
+                style = MaterialTheme.typography.headlineMedium,
+                modifier = Modifier.weight(1f),
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+            )
+            // Add an empty box with the same size as the back button to maintain centering
+            Box(modifier = Modifier.size(48.dp))
         }
 
         // Theme Settings
@@ -109,7 +126,9 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isPaymentMethodsExpanded = !isPaymentMethodsExpanded },
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -117,21 +136,36 @@ fun SettingsScreen(
                         text = "Payment Methods",
                         style = MaterialTheme.typography.titleMedium
                     )
-                    IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Default.Add, contentDescription = "Add payment method")
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(onClick = { showAddDialog = true }) {
+                            Icon(Icons.Default.Add, contentDescription = "Add payment method")
+                        }
+                        Icon(
+                            imageVector = if (isPaymentMethodsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                            contentDescription = if (isPaymentMethodsExpanded) "Collapse" else "Expand"
+                        )
                     }
                 }
                 
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                AnimatedVisibility(
+                    visible = isPaymentMethodsExpanded,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
                 ) {
-                    items(paymentMethods) { paymentMethod ->
-                        PaymentMethodItem(
-                            paymentMethod = paymentMethod,
-                            onEdit = { editingPaymentMethod = it },
-                            onToggleActive = { paymentMethodViewModel.togglePaymentMethodActive(it) },
-                            onDelete = { paymentMethodViewModel.deletePaymentMethod(it) }
-                        )
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(paymentMethods) { paymentMethod ->
+                            PaymentMethodItem(
+                                paymentMethod = paymentMethod,
+                                onEdit = { editingPaymentMethod = it },
+                                onToggleActive = { paymentMethodViewModel.togglePaymentMethodActive(it) },
+                                onDelete = { paymentMethodViewModel.deletePaymentMethod(it) }
+                            )
+                        }
                     }
                 }
             }
