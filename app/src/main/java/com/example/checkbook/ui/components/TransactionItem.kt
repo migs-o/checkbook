@@ -154,10 +154,10 @@ fun TransactionItem(
                     Text(
                         text = NumberFormat.getCurrencyInstance().format(transaction.amount),
                         style = MaterialTheme.typography.bodyLarge,
-                        color = if (transaction.amount >= 0) 
-                            MaterialTheme.colorScheme.primary 
+                        color = if (transaction.type == TransactionType.EXPENSE) 
+                            Color(0xFFD32F2F) // A deeper red color
                         else 
-                            MaterialTheme.colorScheme.error
+                            Color(0xFF2E7D32) // A proper green color
                     )
                 }
             }
