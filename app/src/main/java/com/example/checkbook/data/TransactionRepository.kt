@@ -1,8 +1,8 @@
 package com.example.checkbook.data
 
-import com.example.checkbook.data.Transaction
+import com.example.checkbook.data.entity.Transaction
 import kotlinx.coroutines.flow.Flow
-import com.example.checkbook.data.TransactionType
+import com.example.checkbook.data.entity.TransactionType
 import kotlinx.coroutines.flow.map
 
 class TransactionRepository(private val transactionDao: TransactionDao) {

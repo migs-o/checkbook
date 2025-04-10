@@ -3,15 +3,16 @@ package com.example.checkbook.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.checkbook.data.Transaction
 import com.example.checkbook.data.TransactionRepository
-import com.example.checkbook.data.TransactionType
+import com.example.checkbook.data.entity.Transaction
+import com.example.checkbook.data.entity.TransactionType
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.util.Date
+import java.time.LocalDate
 
 class TransactionViewModel(private val repository: TransactionRepository) : ViewModel() {
     val transactions = repository.allTransactions
@@ -29,26 +30,23 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
         )
 
     private val _uiState = MutableStateFlow<TransactionUiState>(TransactionUiState.Success)
-    val uiState: StateFlow<TransactionUiState> = _uiState
+    val uiState: StateFlow<TransactionUiState> = _uiState.asStateFlow()
 
     fun addTransaction(
         amount: Double,
         description: String,
         type: TransactionType,
-        checkNumber: String? = null,
-        paymentMethodId: Long = 0L
+        paymentMethodId: Long? = null
     ) {
         viewModelScope.launch {
             try {
-              _uiState.value = TransactionUiState.Loading
+                _uiState.value = TransactionUiState.Loading
                 val transaction = Transaction(
-                    date = Date(),
                     amount = amount,
                     description = description,
                     type = type,
-                    checkNumber = checkNumber,
-                    balance = 0.0, // The repository will calculate the correct balance
-                    paymentMethodId = paymentMethodId
+                    paymentMethodId = paymentMethodId,
+                    date = LocalDate.now()
                 )
                 repository.insertTransaction(transaction)
                 _uiState.value = TransactionUiState.Success
