@@ -40,7 +40,7 @@ class TransactionViewModel(private val repository: TransactionRepository) : View
     ) {
         viewModelScope.launch {
             try {
-                _uiState.value = TransactionUiState.Loading
+              _uiState.value = TransactionUiState.Loading
                 val transaction = Transaction(
                     date = Date(),
                     amount = amount,

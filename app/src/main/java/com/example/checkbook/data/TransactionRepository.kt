@@ -1,6 +1,8 @@
 package com.example.checkbook.data
 
+import com.example.checkbook.data.Transaction
 import kotlinx.coroutines.flow.Flow
+import com.example.checkbook.data.TransactionType
 import kotlinx.coroutines.flow.map
 
 class TransactionRepository(private val transactionDao: TransactionDao) {
@@ -11,6 +13,7 @@ class TransactionRepository(private val transactionDao: TransactionDao) {
             acc + when (transaction.type) {
                 TransactionType.INCOME -> transaction.amount
                 TransactionType.EXPENSE -> -transaction.amount
+                else -> 0.0
             }
         }
     }
