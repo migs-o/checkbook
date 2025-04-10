@@ -1,17 +1,18 @@
 package com.example.checkbook.data
 
 import androidx.room.TypeConverter
-import java.util.Date
+import com.example.checkbook.data.entity.TransactionType
+import java.time.LocalDate
 
 class Converters {
     @TypeConverter
-    fun fromTimestamp(value: Long?): Date? {
-        return value?.let { Date(it) }
+    fun fromTimestamp(value: Long?): LocalDate? {
+        return value?.let { LocalDate.ofEpochDay(it) }
     }
 
     @TypeConverter
-    fun dateToTimestamp(date: Date?): Long? {
-        return date?.time
+    fun dateToTimestamp(date: LocalDate?): Long? {
+        return date?.toEpochDay()
     }
 
     @TypeConverter

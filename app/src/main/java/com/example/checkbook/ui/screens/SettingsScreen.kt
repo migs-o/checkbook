@@ -31,175 +31,126 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.checkbook.data.PaymentMethod
-import com.example.checkbook.ui.PaymentMethodViewModel
-import com.example.checkbook.ui.viewmodels.SettingsViewModel
-import com.example.checkbook.ui.viewmodels.SettingsViewModelFactory
-import kotlinx.coroutines.launch
-import androidx.compose.foundation.clickable
-import androidx.compose.animation.AnimatedVisibility
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.checkbook.data.entity.PaymentMethod
+import com.example.checkbook.ui.viewmodels.PaymentMethodViewModel
+import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
-    paymentMethodViewModel: PaymentMethodViewModel,
-    onNavigateBack: () -> Unit,
-    modifier: Modifier = Modifier
+    viewModel: PaymentMethodViewModel = hiltViewModel()
 ) {
-    val context = LocalContext.current
-    val viewModel: SettingsViewModel = viewModel(
-        factory = SettingsViewModelFactory(context)
-    )
-    val themePreference by viewModel.themePreference.collectAsState(initial = "system")
-    val paymentMethods by paymentMethodViewModel.allPaymentMethods.collectAsState(initial = emptyList())
     var showAddDialog by remember { mutableStateOf(false) }
     var editingPaymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
-    var isPaymentMethodsExpanded by remember { mutableStateOf(false) }
+    var name by remember { mutableStateOf("") }
+    var iconName by remember { mutableStateOf("") }
+    var iconColor by remember { mutableStateOf(0) }
+
+    val paymentMethods by viewModel.paymentMethods.collectAsState()
 
     Column(
-        modifier = modifier
+        modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(onClick = onNavigateBack) {
-                Icon(Icons.Default.ArrowBack, contentDescription = "Back")
-            }
-            Text(
-                text = "Settings",
-                style = MaterialTheme.typography.headlineMedium,
-                modifier = Modifier.weight(1f),
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center
-            )
-            // Add an empty box with the same size as the back button to maintain centering
-            Box(modifier = Modifier.size(48.dp))
-        }
+        Text(
+            text = "Payment Methods",
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.padding(bottom = 16.dp)
+        )
 
-        // Theme Settings
-        Card(
-            modifier = Modifier.fillMaxWidth()
+        LazyColumn(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text(
-                    text = "Theme",
-                    style = MaterialTheme.typography.titleMedium
+            items(paymentMethods) { paymentMethod ->
+                PaymentMethodItem(
+                    paymentMethod = paymentMethod,
+                    onToggleActive = { viewModel.togglePaymentMethodActive(it) },
+                    onDelete = { viewModel.deletePaymentMethod(it) },
+                    onEdit = { editingPaymentMethod = it }
                 )
-                
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    FilterChip(
-                        selected = themePreference == "light",
-                        onClick = { viewModel.setThemePreference("light") },
-                        label = { Text("Light") }
-                    )
-                    FilterChip(
-                        selected = themePreference == "dark",
-                        onClick = { viewModel.setThemePreference("dark") },
-                        label = { Text("Dark") }
-                    )
-                    FilterChip(
-                        selected = themePreference == "system",
-                        onClick = { viewModel.setThemePreference("system") },
-                        label = { Text("System") }
-                    )
-                }
             }
         }
 
-        // Payment Methods Section
-        Card(
-            modifier = Modifier.fillMaxWidth()
+        Button(
+            onClick = { showAddDialog = true },
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 16.dp)
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable { isPaymentMethodsExpanded = !isPaymentMethodsExpanded },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "Payment Methods",
-                        style = MaterialTheme.typography.titleMedium
-                    )
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(onClick = { showAddDialog = true }) {
-                            Icon(Icons.Default.Add, contentDescription = "Add payment method")
-                        }
-                        Icon(
-                            imageVector = if (isPaymentMethodsExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                            contentDescription = if (isPaymentMethodsExpanded) "Collapse" else "Expand"
-                        )
-                    }
-                }
-                
-                AnimatedVisibility(
-                    visible = isPaymentMethodsExpanded,
-                    enter = expandVertically() + fadeIn(),
-                    exit = shrinkVertically() + fadeOut()
-                ) {
-                    LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        items(paymentMethods) { paymentMethod ->
-                            PaymentMethodItem(
-                                paymentMethod = paymentMethod,
-                                onEdit = { editingPaymentMethod = it },
-                                onToggleActive = { paymentMethodViewModel.togglePaymentMethodActive(it) },
-                                onDelete = { paymentMethodViewModel.deletePaymentMethod(it) }
-                            )
-                        }
-                    }
-                }
-            }
+            Icon(Icons.Default.Add, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text("Add Payment Method")
         }
     }
 
-    // Add/Edit Dialog
     if (showAddDialog || editingPaymentMethod != null) {
-        AddEditPaymentMethodDialog(
-            paymentMethod = editingPaymentMethod,
-            onDismiss = {
+        AlertDialog(
+            onDismissRequest = {
                 showAddDialog = false
                 editingPaymentMethod = null
+                name = ""
+                iconName = ""
+                iconColor = 0
             },
-            onConfirm = { name ->
-                if (editingPaymentMethod != null) {
-                    paymentMethodViewModel.updatePaymentMethod(editingPaymentMethod!!.copy(name = name))
-                } else {
-                    paymentMethodViewModel.addPaymentMethod(name)
+            title = { Text(if (editingPaymentMethod != null) "Edit Payment Method" else "Add Payment Method") },
+            text = {
+                Column {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        label = { Text("Name") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    // Add more fields for icon selection and color
                 }
-                showAddDialog = false
-                editingPaymentMethod = null
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (editingPaymentMethod != null) {
+                            viewModel.updatePaymentMethod(editingPaymentMethod!!.copy(
+                                name = name,
+                                iconName = iconName,
+                                iconColor = iconColor
+                            ))
+                        } else {
+                            viewModel.addPaymentMethod(name, iconName, iconColor)
+                        }
+                        showAddDialog = false
+                        editingPaymentMethod = null
+                        name = ""
+                        iconName = ""
+                        iconColor = 0
+                    }
+                ) {
+                    Text("Save")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showAddDialog = false
+                        editingPaymentMethod = null
+                        name = ""
+                        iconName = ""
+                        iconColor = 0
+                    }
+                ) {
+                    Text("Cancel")
+                }
             }
         )
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun PaymentMethodItem(
     paymentMethod: PaymentMethod,
-    onEdit: (PaymentMethod) -> Unit,
     onToggleActive: (PaymentMethod) -> Unit,
-    onDelete: (PaymentMethod) -> Unit
+    onDelete: (PaymentMethod) -> Unit,
+    onEdit: (PaymentMethod) -> Unit
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -211,16 +162,25 @@ fun PaymentMethodItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(paymentMethod.name)
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Switch(
-                    checked = paymentMethod.isActive,
-                    onCheckedChange = { onToggleActive(paymentMethod) }
+            Column {
+                Text(
+                    text = paymentMethod.name,
+                    style = MaterialTheme.typography.titleMedium
                 )
+                Text(
+                    text = if (paymentMethod.isActive) "Active" else "Inactive",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            Row {
                 IconButton(onClick = { onEdit(paymentMethod) }) {
                     Icon(Icons.Default.Edit, contentDescription = "Edit")
+                }
+                IconButton(onClick = { onToggleActive(paymentMethod) }) {
+                    Icon(
+                        if (paymentMethod.isActive) Icons.Default.CheckCircle else Icons.Default.Close,
+                        contentDescription = if (paymentMethod.isActive) "Deactivate" else "Activate"
+                    )
                 }
                 IconButton(onClick = { onDelete(paymentMethod) }) {
                     Icon(Icons.Default.Delete, contentDescription = "Delete")
@@ -228,78 +188,4 @@ fun PaymentMethodItem(
             }
         }
     }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AddEditPaymentMethodDialog(
-    paymentMethod: PaymentMethod?,
-    onDismiss: () -> Unit,
-    onConfirm: (String) -> Unit
-) {
-    var name by remember { mutableStateOf(paymentMethod?.name ?: "") }
-    var isNameError by remember { mutableStateOf(false) }
-    var shouldShake by remember { mutableStateOf(false) }
-    
-    val nameFocusRequester = remember { FocusRequester() }
-    val keyboardController = LocalSoftwareKeyboardController.current
-
-    val offsetX by animateFloatAsState(
-        targetValue = if (shouldShake) 10f else 0f,
-        animationSpec = tween(durationMillis = 50),
-        finishedListener = { shouldShake = false }
-    )
-
-    LaunchedEffect(Unit) {
-        nameFocusRequester.requestFocus()
-        keyboardController?.show()
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (paymentMethod == null) "Add Payment Method" else "Edit Payment Method") },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Name") },
-                isError = isNameError,
-                keyboardOptions = KeyboardOptions(
-                    capitalization = KeyboardCapitalization.Sentences,
-                    keyboardType = KeyboardType.Text,
-                    imeAction = ImeAction.Done
-                ),
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .offset(x = offsetX.dp)
-                    .focusRequester(nameFocusRequester)
-            )
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    if (name.isBlank()) {
-                        isNameError = true
-                        shouldShake = true
-                    } else {
-                        onConfirm(name)
-                        keyboardController?.hide()
-                    }
-                },
-                enabled = name.isNotBlank()
-            ) {
-                Text(if (paymentMethod == null) "Add" else "Save")
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = {
-                    keyboardController?.hide()
-                    onDismiss()
-                }
-            ) {
-                Text("Cancel")
-            }
-        }
-    )
 } 

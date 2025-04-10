@@ -5,7 +5,7 @@
     android:versionName="1.0" >
 
     <uses-sdk
-        android:minSdkVersion="24"
+        android:minSdkVersion="26"
         android:targetSdkVersion="34" />
 
     <permission
@@ -15,6 +15,7 @@
     <uses-permission android:name="com.example.checkbook.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" />
 
     <application
+        android:name="com.example.checkbook.CheckbookApplication"
         android:allowBackup="true"
         android:appComponentFactory="androidx.core.app.CoreComponentFactory"
         android:debuggable="true"
@@ -27,7 +28,8 @@
         android:theme="@style/Theme.Checkbook" >
         <activity
             android:name="com.example.checkbook.MainActivity"
-            android:exported="true" >
+            android:exported="true"
+            android:theme="@style/Theme.Checkbook" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

@@ -1,7 +1,10 @@
 package com.example.checkbook.data
 
 import androidx.room.*
+import com.example.checkbook.data.entity.Transaction
+import com.example.checkbook.data.entity.TransactionType
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
 
 @Dao
 interface TransactionDao {
@@ -20,6 +23,9 @@ interface TransactionDao {
     @Delete
     suspend fun deleteTransaction(transaction: Transaction)
 
-    @Query("SELECT SUM(CASE WHEN type IN ('DEPOSIT') THEN amount ELSE -amount END) FROM transactions")
+    @Query("SELECT * FROM transactions WHERE date BETWEEN :startDate AND :endDate ORDER BY date DESC")
+    fun getTransactionsInDateRange(startDate: LocalDate, endDate: LocalDate): Flow<List<Transaction>>
+
+    @Query("SELECT SUM(CASE WHEN type = 'INCOME' THEN amount ELSE -amount END) FROM transactions")
     fun getCurrentBalance(): Flow<Double>
 } 

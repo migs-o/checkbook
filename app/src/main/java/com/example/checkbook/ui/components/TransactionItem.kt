@@ -19,9 +19,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.checkbook.data.Transaction
-import com.example.checkbook.data.TransactionType
-import com.example.checkbook.data.PaymentMethod
+import com.example.checkbook.data.entity.Transaction
+import com.example.checkbook.data.entity.TransactionType
+import com.example.checkbook.data.entity.PaymentMethod
 import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
