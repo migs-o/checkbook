@@ -31,6 +31,7 @@ fun AnalyticsScreen(
     var customStartDate by remember { mutableStateOf(LocalDate.now().minusMonths(1)) }
     var customEndDate by remember { mutableStateOf(LocalDate.now()) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var isSelectingStartDate by remember { mutableStateOf(true) }
     
     val filteredTransactions = remember(selectedDateRange, customStartDate, customEndDate, transactions) {
         when (selectedDateRange) {
@@ -51,16 +52,11 @@ fun AnalyticsScreen(
         }
     }
     
-    val paymentMethodTotals = remember(filteredTransactions, paymentMethods) {
+    val paymentMethodExpenses = remember(filteredTransactions, paymentMethods) {
         paymentMethods.associateWith { paymentMethod ->
             filteredTransactions
-                .filter { it.paymentMethodId == paymentMethod.id }
-                .sumOf { transaction ->
-                    when (transaction.type) {
-                        TransactionType.INCOME -> transaction.amount
-                        TransactionType.EXPENSE -> -transaction.amount
-                    }
-                }
+                .filter { it.paymentMethodId == paymentMethod.id && it.type == TransactionType.EXPENSE }
+                .sumOf { it.amount }
         }
     }
     
@@ -90,13 +86,20 @@ fun AnalyticsScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    DateRange.values().forEach { range ->
+                    DateRange.values().filter { it != DateRange.CUSTOM }.forEach { range ->
                         FilterChip(
                             selected = selectedDateRange == range,
                             onClick = { selectedDateRange = range },
                             label = { Text(range.label) }
                         )
                     }
+                    
+                    // Calendar icon button for custom date range
+                    FilterChip(
+                        selected = selectedDateRange == DateRange.CUSTOM,
+                        onClick = { selectedDateRange = DateRange.CUSTOM },
+                        label = { Icon(Icons.Default.DateRange, contentDescription = "Custom Date Range") }
+                    )
                 }
                 
                 if (selectedDateRange == DateRange.CUSTOM) {
@@ -107,21 +110,28 @@ fun AnalyticsScreen(
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         OutlinedButton(
-                            onClick = { showDatePicker = true }
+                            onClick = { 
+                                isSelectingStartDate = true
+                                showDatePicker = true 
+                            }
                         ) {
-                            Icon(
-                                Icons.Default.DateRange,
-                                contentDescription = "Select Date Range"
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Custom Range")
+                            Text("Start: ${customStartDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))}")
+                        }
+                        
+                        OutlinedButton(
+                            onClick = { 
+                                isSelectingStartDate = false
+                                showDatePicker = true 
+                            }
+                        ) {
+                            Text("End: ${customEndDate.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))}")
                         }
                     }
                 }
             }
         }
         
-        // Payment method analysis
+        // Payment method expenses
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -133,40 +143,38 @@ fun AnalyticsScreen(
                     .padding(16.dp)
             ) {
                 Text(
-                    text = "Payment Method Analysis",
+                    text = "Expenses by Payment Method",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(bottom = 16.dp)
                 )
                 
                 LazyColumn {
                     items(paymentMethods) { paymentMethod ->
-                        val total = paymentMethodTotals[paymentMethod] ?: 0.0
+                        val total = paymentMethodExpenses[paymentMethod] ?: 0.0
                         
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 8.dp),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = paymentMethod.name,
-                                style = MaterialTheme.typography.bodyLarge
-                            )
+                        if (total > 0) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = paymentMethod.name,
+                                    style = MaterialTheme.typography.bodyLarge
+                                )
+                                
+                                Text(
+                                    text = "$${String.format("%.2f", total)}",
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.error
+                                )
+                            }
                             
-                            Text(
-                                text = "$${String.format("%.2f", total)}",
-                                style = MaterialTheme.typography.bodyLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = when {
-                                    total > 0 -> MaterialTheme.colorScheme.primary
-                                    total < 0 -> MaterialTheme.colorScheme.error
-                                    else -> MaterialTheme.colorScheme.onSurface
-                                }
-                            )
+                            Divider()
                         }
-                        
-                        Divider()
                     }
                 }
             }
@@ -174,17 +182,46 @@ fun AnalyticsScreen(
     }
     
     if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (if (isSelectingStartDate) customStartDate else customEndDate)
+                .atStartOfDay()
+                .toInstant(java.time.ZoneOffset.UTC)
+                .toEpochMilli()
+        )
+        
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(
-                    onClick = { showDatePicker = false }
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            val localDate = java.time.Instant.ofEpochMilli(millis)
+                                .atZone(java.time.ZoneId.systemDefault())
+                                .toLocalDate()
+                            
+                            if (isSelectingStartDate) {
+                                customStartDate = localDate
+                            } else {
+                                customEndDate = localDate
+                            }
+                        }
+                        showDatePicker = false
+                    }
                 ) {
                     Text("OK")
                 }
             }
         ) {
-            // Date picker implementation would go here
+            DatePicker(
+                state = datePickerState,
+                showModeToggle = false,
+                title = {
+                    Text(
+                        text = if (isSelectingStartDate) "Select Start Date" else "Select End Date",
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                }
+            )
         }
     }
 }
