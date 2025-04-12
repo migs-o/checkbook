@@ -81,7 +81,11 @@ fun MainScreen(
                 Text(
                     text = "$${String.format("%.2f", currentBalance)}",
                     style = MaterialTheme.typography.headlineLarge,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = if (currentBalance >= 0) 
+                        Color(0xFF2E7D32) // Green for positive balance
+                    else 
+                        Color(0xFFD32F2F) // Red for negative balance
                 )
             }
         }
@@ -94,6 +98,7 @@ fun MainScreen(
             items(transactions) { transaction ->
                 TransactionItem(
                     transaction = transaction,
+                    paymentMethods = paymentMethods,
                     onDelete = { transactionViewModel.deleteTransaction(it) },
                     onEdit = { showEditDialog = it }
                 )
@@ -153,10 +158,12 @@ fun MainScreen(
 @Composable
 fun TransactionItem(
     transaction: Transaction,
+    paymentMethods: List<PaymentMethod>,
     onDelete: (Transaction) -> Unit,
     onEdit: (Transaction) -> Unit
 ) {
     var showDeleteConfirmation by remember { mutableStateOf(false) }
+    val paymentMethod = paymentMethods.find { it.id.toLong() == transaction.paymentMethodId }
     
     if (showDeleteConfirmation) {
         AlertDialog(
@@ -201,10 +208,22 @@ fun TransactionItem(
                     text = transaction.description,
                     style = MaterialTheme.typography.titleMedium
                 )
-                Text(
-                    text = transaction.date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
-                    style = MaterialTheme.typography.bodyMedium
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = transaction.date.format(DateTimeFormatter.ofPattern("MMM dd, yyyy")),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    if (paymentMethod != null) {
+                        Text(
+                            text = paymentMethod.name,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
             }
             Text(
                 text = "$${String.format("%.2f", transaction.amount)}",
