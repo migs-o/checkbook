@@ -63,17 +63,11 @@ fun SettingsScreen(
         ) {
             ListItem(
                 headlineContent = { Text("Payment Methods") },
-                leadingContent = {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                },
                 trailingContent = {
                     Icon(
-                        Icons.Default.KeyboardArrowRight,
-                        contentDescription = "Navigate to Payment Methods"
+                        Icons.Default.ArrowForward,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
                     )
                 },
                 modifier = Modifier.clickable {
