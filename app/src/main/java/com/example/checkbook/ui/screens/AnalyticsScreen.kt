@@ -21,43 +21,46 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AnalyticsScreen(
-    transactionViewModel: TransactionViewModel = hiltViewModel(),
-    paymentMethodViewModel: PaymentMethodViewModel = hiltViewModel()
+    transactionViewModel: TransactionViewModel,
+    paymentMethodViewModel: PaymentMethodViewModel
 ) {
     val transactions by transactionViewModel.transactions.collectAsState()
     val paymentMethods by paymentMethodViewModel.paymentMethods.collectAsState()
-    
-    var selectedDateRange by remember { mutableStateOf(DateRange.MONTH) }
-    var customStartDate by remember { mutableStateOf(LocalDate.now().minusMonths(1)) }
-    var customEndDate by remember { mutableStateOf(LocalDate.now()) }
+    var selectedDateRange by remember { mutableStateOf(DateRange.DAY) }
     var showDatePicker by remember { mutableStateOf(false) }
+    var customStartDate by remember { mutableStateOf(LocalDate.now()) }
+    var customEndDate by remember { mutableStateOf(LocalDate.now()) }
     var isSelectingStartDate by remember { mutableStateOf(true) }
-    
-    val filteredTransactions = remember(selectedDateRange, customStartDate, customEndDate, transactions) {
+    val datePickerState = rememberDatePickerState()
+
+    val filteredTransactions = remember(transactions, selectedDateRange, customStartDate, customEndDate) {
         when (selectedDateRange) {
             DateRange.DAY -> transactions.filter { it.date == LocalDate.now() }
-            DateRange.WEEK -> {
-                val startOfWeek = LocalDate.now().minusDays(7)
-                transactions.filter { it.date >= startOfWeek && it.date <= LocalDate.now() }
+            DateRange.WEEK -> transactions.filter { 
+                it.date >= LocalDate.now().minusWeeks(1) && 
+                it.date <= LocalDate.now()
             }
-            DateRange.MONTH -> {
-                val startOfMonth = LocalDate.now().minusMonths(1)
-                transactions.filter { it.date >= startOfMonth && it.date <= LocalDate.now() }
+            DateRange.MONTH -> transactions.filter { 
+                it.date >= LocalDate.now().minusMonths(1) && 
+                it.date <= LocalDate.now()
             }
-            DateRange.YEAR -> {
-                val startOfYear = LocalDate.now().minusYears(1)
-                transactions.filter { it.date >= startOfYear && it.date <= LocalDate.now() }
+            DateRange.YEAR -> transactions.filter { 
+                it.date >= LocalDate.now().minusYears(1) && 
+                it.date <= LocalDate.now()
             }
-            DateRange.CUSTOM -> transactions.filter { it.date >= customStartDate && it.date <= customEndDate }
+            DateRange.CUSTOM -> transactions.filter { 
+                it.date >= customStartDate && 
+                it.date <= customEndDate
+            }
         }
     }
-    
+
     val paymentMethodExpenses = remember(filteredTransactions, paymentMethods) {
         paymentMethods.associateWith { paymentMethod ->
             filteredTransactions
                 .filter { it.paymentMethodId == paymentMethod.id && it.type == TransactionType.EXPENSE }
                 .sumOf { it.amount }
-        }
+        }.filterValues { it > 0.0 }
     }
     
     Column(
@@ -182,11 +185,13 @@ fun AnalyticsScreen(
     }
     
     if (showDatePicker) {
+        val initialDateMillis = (if (isSelectingStartDate) customStartDate else customEndDate)
+            .atStartOfDay(java.time.ZoneId.systemDefault())
+            .toInstant()
+            .toEpochMilli()
+            
         val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = (if (isSelectingStartDate) customStartDate else customEndDate)
-                .atStartOfDay()
-                .toInstant(java.time.ZoneOffset.UTC)
-                .toEpochMilli()
+            initialSelectedDateMillis = initialDateMillis
         )
         
         DatePickerDialog(
@@ -198,6 +203,7 @@ fun AnalyticsScreen(
                             val localDate = java.time.Instant.ofEpochMilli(millis)
                                 .atZone(java.time.ZoneId.systemDefault())
                                 .toLocalDate()
+                                .plusDays(1) // Add one day to compensate for timezone conversion
                             
                             if (isSelectingStartDate) {
                                 customStartDate = localDate
