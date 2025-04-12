@@ -30,162 +30,105 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.clickable
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.example.checkbook.data.entity.PaymentMethod
 import com.example.checkbook.ui.viewmodels.PaymentMethodViewModel
 import java.util.*
+import androidx.navigation.NavController
 
 @Composable
 fun SettingsScreen(
-    viewModel: PaymentMethodViewModel = hiltViewModel()
+    navController: NavController,
+    paymentMethodViewModel: PaymentMethodViewModel
 ) {
-    var showAddDialog by remember { mutableStateOf(false) }
-    var editingPaymentMethod by remember { mutableStateOf<PaymentMethod?>(null) }
-    var name by remember { mutableStateOf("") }
-    var iconName by remember { mutableStateOf("") }
-    var iconColor by remember { mutableStateOf(0) }
-
-    val paymentMethods by viewModel.paymentMethods.collectAsState()
-
     Column(
         modifier = Modifier
             .fillMaxSize()
             .padding(16.dp)
     ) {
         Text(
-            text = "Payment Methods",
+            text = "Settings",
             style = MaterialTheme.typography.headlineMedium,
-            modifier = Modifier.padding(bottom = 16.dp)
+            modifier = Modifier.padding(bottom = 24.dp)
         )
 
-        LazyColumn(
-            modifier = Modifier.weight(1f),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+        // Payment Methods Section
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
-            items(paymentMethods) { paymentMethod ->
-                PaymentMethodItem(
-                    paymentMethod = paymentMethod,
-                    onToggleActive = { viewModel.togglePaymentMethodActive(it) },
-                    onDelete = { viewModel.deletePaymentMethod(it) },
-                    onEdit = { editingPaymentMethod = it }
+            ListItem(
+                headlineContent = { Text("Payment Methods") },
+                leadingContent = {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                },
+                trailingContent = {
+                    Icon(
+                        Icons.Default.KeyboardArrowRight,
+                        contentDescription = "Navigate to Payment Methods"
+                    )
+                },
+                modifier = Modifier.clickable {
+                    navController.navigate("payment_methods")
+                }
+            )
+        }
+
+        // Other Settings Sections
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "App Settings",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                // Add other settings items here
+                Text(
+                    text = "Coming soon...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
-
-        Button(
-            onClick = { showAddDialog = true },
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 16.dp)
-        ) {
-            Icon(Icons.Default.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text("Add Payment Method")
-        }
-    }
-
-    if (showAddDialog || editingPaymentMethod != null) {
-        AlertDialog(
-            onDismissRequest = {
-                showAddDialog = false
-                editingPaymentMethod = null
-                name = ""
-                iconName = ""
-                iconColor = 0
-            },
-            title = { Text(if (editingPaymentMethod != null) "Edit Payment Method" else "Add Payment Method") },
-            text = {
-                Column {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = { Text("Name") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    // Add more fields for icon selection and color
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        if (editingPaymentMethod != null) {
-                            viewModel.updatePaymentMethod(editingPaymentMethod!!.copy(
-                                name = name,
-                                iconName = iconName,
-                                iconColor = iconColor
-                            ))
-                        } else {
-                            viewModel.addPaymentMethod(name, iconName, iconColor)
-                        }
-                        showAddDialog = false
-                        editingPaymentMethod = null
-                        name = ""
-                        iconName = ""
-                        iconColor = 0
-                    }
-                ) {
-                    Text("Save")
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showAddDialog = false
-                        editingPaymentMethod = null
-                        name = ""
-                        iconName = ""
-                        iconColor = 0
-                    }
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
     }
 }
 
 @Composable
-fun PaymentMethodItem(
+private fun PaymentMethodItem(
     paymentMethod: PaymentMethod,
-    onToggleActive: (PaymentMethod) -> Unit,
-    onDelete: (PaymentMethod) -> Unit,
-    onEdit: (PaymentMethod) -> Unit
+    onDelete: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = paymentMethod.name,
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = if (paymentMethod.isActive) "Active" else "Inactive",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            }
-            Row {
-                IconButton(onClick = { onEdit(paymentMethod) }) {
-                    Icon(Icons.Default.Edit, contentDescription = "Edit")
-                }
-                IconButton(onClick = { onToggleActive(paymentMethod) }) {
-                    Icon(
-                        if (paymentMethod.isActive) Icons.Default.CheckCircle else Icons.Default.Close,
-                        contentDescription = if (paymentMethod.isActive) "Deactivate" else "Activate"
-                    )
-                }
-                IconButton(onClick = { onDelete(paymentMethod) }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete")
-                }
-            }
+        Text(
+            text = paymentMethod.name,
+            style = MaterialTheme.typography.bodyLarge
+        )
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Default.Delete, contentDescription = "Delete Payment Method")
         }
     }
 } 
